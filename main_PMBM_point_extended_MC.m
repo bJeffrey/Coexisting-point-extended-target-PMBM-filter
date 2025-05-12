@@ -46,7 +46,7 @@ model.ifTOPMB=true;
 
 
 %If plot (Plot of the estimates and ground truth at each time step)
-ifplot = false;
+ifplot = true;
 
 
 %Number of Monte Carlo runs
@@ -74,7 +74,7 @@ estimates = cell(K,1);
 groundTruth=cell(K,1);
 N_tracks=length(object_tracks);
 
-for k=1:K
+for k=1:K % number of time steps - same as the number of monte-carlo runs
     N_k=0;
     for i = 1:N_tracks
         t_birth=object_tracks(i).birthTime;
@@ -94,7 +94,7 @@ for k=1:K
     end
 end
 
-
+%% ground truth generated. Run monte-carlo simulation
 
 rand('seed',9)
 randn('seed',9)
@@ -120,7 +120,7 @@ for i=1:Nmc
     %fprintf('Time step: ');
     
     tic
-    for k = 1:K
+    for k = 1:K % number of time steps - same as the number of monte-carlo runs
         
         %Print info
         %fprintf('%d ',k);
@@ -148,13 +148,21 @@ for i=1:Nmc
         %%%%%%
         if ifplot
             % For illustration purposes
-            figure(2)
-            clf
-            plot(Z{k}(1,:),Z{k}(2,:),'kx','linewidth',1)
+            
+
+            h_f_pmbm     = figure(2); % handle for the figure of the G-force plot
+            h_ax_pmbm    = axes('Parent', h_f_pmbm); hold(h_ax_pmbm, 'on')
+
+            clf(h_ax_pmbm)
+            plot(h_ax_pmbm, Z{k}(1,:),Z{k}(2,:),'kx','linewidth',1); % measurements
             hold on
             N_k=length(object_tracks);
             
-            for j = 1:N_k
+            % Initialize legend text
+            txt_lgd = {'Measurements'};
+            
+            
+            for j = 1:N_k % number of ground truth targets at time step k
                 
                 t_birth=object_tracks(j).birthTime;
                 t_death=object_tracks(j).deathTime;
@@ -162,33 +170,57 @@ for i=1:Nmc
                 if(and(k>=t_birth,k<t_death))
                     %Target is alive
                     if(isempty(object_tracks(j).g))
-                        %We have a point target
+                        %We have a point target (one detection per sensor scan)
                         x=object_tracks(j).x(1:2,k-t_birth+1);
-                        plot(x(1),x(2),'xg','linewidth',2)
+                        plot(h_ax_pmbm, x(1),x(2),'xg','linewidth',2);
                         
+                        if ~any(strcmp(txt_lgd, 'GT Pt. Target'))
+                            txt_lgd{end+1} = 'GT Pt. Target';
+                        else
+                            txt_lgd{end+1} = '';
+                        end
+
                     else
-                        %We have an extended target
+                        %We have an extended target (multiple detections per sensor scan)
                         x=object_tracks(j).x(1:2,k-t_birth+1);
                         X=object_tracks(j).X(:,:,k-t_birth+1);
                         %plot(x(1),x(2),'b')
                         [cx,cy]=Sigmacircle(x(1),x(2),X,3);
-                        h2 = plot(cx,cy,'b-','linewidth',2);
+                        plot(h_ax_pmbm, cx,cy,'b-','linewidth',2);
                         
+                        if ~any(strcmp(txt_lgd, 'GT Ext. Target'))
+                            txt_lgd{end+1} = 'GT Ext. Target';
+                        else
+                            txt_lgd{end+1} = '';
+                        end
+
                     end
                 end
             end
             
-            for j = 1:length(estimates{k})
+            for j = 1:length(estimates{k}) % number of targets estimated at time step k
                 x=estimates{k}(j).x;
                 if(isempty(estimates{k}(j).X))
                     %This is a point target
-                    plot(x(1),x(2),'-xm','linewidth',2)
+                    plot(h_ax_pmbm, x(1),x(2),'xm','linewidth',2);
+                    
+                    if ~any(strcmp(txt_lgd, 'Est. Pt. Target'))
+                        txt_lgd{end+1} = 'Est. Pt. Target';
+                    else
+                        txt_lgd{end+1} = '';
+                    end
                     
                 else
                     %this is an extended target
                     X=estimates{k}(j).X;
                     [cx,cy]=Sigmacircle(x(1),x(2),X,3);
-                    h2 = plot(cx,cy,'r--','linewidth',2);
+                    plot(h_ax_pmbm, cx,cy,'r--','linewidth',2);
+
+                    if ~any(strcmp(txt_lgd, 'Est. Ext. Target'))
+                        txt_lgd{end+1} = 'Est. Ext. Target';
+                    else
+                        txt_lgd{end+1} = '';
+                    end
                 end
                 
             end
@@ -197,6 +229,8 @@ for i=1:Nmc
             grid on
             xlabel('x axis (m)')
             ylabel('y axis (m)')
+            legend(h_ax_pmbm, txt_lgd);
+            bp=1;
             
         end
         
